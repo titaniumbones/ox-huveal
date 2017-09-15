@@ -47,7 +47,7 @@
   '(?V "Export to Reveal HTML in the Hugo location"
        ((?H "Subtree to file"
             (lambda (a _s v _b)
-              (org-huvealexport-subtree-to-html nil a v)))
+              (org-huveal-export-subtree-to-html nil a v)))
         (?h "To file"
             (lambda (a s v _b)
               (org-huveal-export-to-html a s v)))
@@ -68,9 +68,9 @@
             (lambda (a s v _b)
               (org-huveal-export-as-md a s v)))))
   :translate-alist '((link . org-huveal-link)
-                     (template . org-huveal-template)
+                     ;;(template . org-huveal-template)
                      )
-  ;; :filters-alist '((:filter-body . org-hugo-body-filter))
+   :filters-alist '((:filter-final-output . org-huveal-final-filter))
 
   ;;                KEY                       KEYWORD                    OPTION  DEFAULT                     BEHAVIOR
   :options-alist '(
@@ -78,9 +78,9 @@
                    (:hugo-static-images "HUGO_STATIC_IMAGES" nil "images/")
                    ;; override reveal path vars with huveal paths
                    ;; HUVEAL_ROOT is set to /vendor/reveal/ by default!
-                   (:reveal-root "HUVEAL_ROOT" nil org-huveal-root t)
-                   (:reveal-extra-css "HUVEAL_EXTRA_CSS" nil org-huveal-extra-css newline)
-                   (:reveal-extra-js "HUVEAL_EXTRA_JS" nil org-huveal-extra-js nil)
+                   (:huveal-root "HUVEAL_ROOT" nil org-huveal-root t)
+                   (:huveal-extra-css "HUVEAL_EXTRA_CSS" nil org-huveal-extra-css newline)
+                   (:huveal-extra-js "HUVEAL_EXTRA_JS" nil org-huveal-extra-js nil)
                    (:hugo-base-dir "HUGO_BASE_DIR" nil nil)
                    (:hugo-section "HUGO_SECTION" nil org-hugo-default-section-directory)
           ))
@@ -363,6 +363,24 @@ Returns nil if a valid Hugo post subtree is not found."
         (unless level
           (throw 'break nil))))))
 
+;; experimental filter
+(defun org-huveal-final-filter (text backend info)
+  "replaces org-reveal paths with org-huveal paths"
+  (let ((rev-root (plist-get info :org-reveal-root))
+        (huv-root (plist-get info :org-huveal-root))
+        (rev-extra-css (plist-get info :org-reveal-extra-css))
+        (huv-extra-css (plist-get info :org-huveal-extra-css))
+        (rev-extra-js (plist-get info :org-reveal-extra-js))
+        (huv-extra-js (plist-get info :org-huveal-extra-js)))
+    (message "ox-huveal, text is: %s" x)
+    (replace-regexp-in-string rev-root huv-root
+                              (replace-regexp-in-string rev-extra-css huv-extra-css
+                                                        (replace-regexp-in-string rev-extra-js huv-extra-js
+                                                                                  text)) )))
+  
+
 (provide 'ox-huveal)
+
+
 
 ;;; ox-huveal.el ends here

@@ -107,22 +107,18 @@ intended to be viewed in the inline environment."
          ;; (can-embed-image (and want-embed-image
          ;;                       (file-readable-p clean-path)))
          )
-    ;; (message "ox-huveal: got past the let in huveal-link")
-    ;; (message "org-element-porpoerty %s" raw-path )
     (if local-image-p
-        (let ((path (org-hugo--attachment-rewrite-maybe
-                     (if (file-name-absolute-p raw-path)
-                         (expand-file-name raw-path)
-                       raw-path)
-                     info)))
-          (message "right before put-property")
+        (let ((path (concat "../.."   ;; dirty hack! -- gets around hugo's absolute URL issues
+                            (org-hugo--attachment-rewrite-maybe raw-path info)))) 
+          ;; (message "right before put-property")
 
           (org-element-put-property link :path path)
           (org-html-link link desc info)
-                    (replace-regexp-in-string "file://" ""
+          ;; I think "file://" replacement may be unnecessary afte rewriting via ox-hugo
+          ;; keeping for now though
+          (replace-regexp-in-string "file://" ""
                                     (replace-regexp-in-string "<a href=\"#" "<a href=\"#/slide-"
                                                               (org-html-link link desc info))))
-      (message "inside the if")
       (replace-regexp-in-string "<a href=\"#" "<a href=\"#/slide-"
                                 (org-html-link link desc info)))
     ;; (if can-embed-image

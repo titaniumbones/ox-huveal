@@ -1,20 +1,20 @@
-;;; ox-hugo.el --- Hugo Markdown Back-End for Org Export Engine  -*- lexical-binding: t -*-
+;;; ox-huveal.el --- Hugo Reveal Back-End for Org Export Engine  -*- lexical-binding: t -*-
 
 ;; Authors: Kaushal Modi <kaushal.mod@gmail.com>
 ;;          Matt Price <moptop99@gmail.com>
-;; URL: https://github.com/kaushalmodi/ox-hugo
+;; URL: https://github.com/titaniumbones/ox-huveal
 ;; Package-Requires: ((emacs "24.5"))
 ;; Keywords: Org, markdown, docs
-;; Version: 0.1
+;; Version: 0.2
 
 ;;; Commentary:
 
-;; This library implements a Markdown back-end compatible with the
-;; Hugo static site generator (https://gohugo.io/) for Org exporter.
-;; This includes the generation of the Hugo post front-matter in TOML
-;; or YAML.
+;; This library implements an HTML back-end compatible with the
+;; Reveal.js slideshow generator (https://revealjs.com/) for Org exporter.
+;; It builds on the work of ox-reveal and ox-hugo, and is heavily indebted
+;; to their authors.
 
-;; See the README and Wiki on https://github.com/kaushalmodi/ox-hugo
+;; See the README on https://github.com/titaniumbones/ox-reveal
 ;; for examples and instructions.
 
 ;;; Code:
@@ -308,6 +308,7 @@ intended to be viewed in the inline environment."
                        (user-error "It is mandatory to set the HUGO_BASE_DIR property")
                      (file-name-as-directory (plist-get info :hugo-base-dir))))
          (content-dir "content/")
+         ;;(content-dir "static/")
          (section-dir (if (null (plist-get info :hugo-section))
                           (user-error "It is mandatory to set the HUGO_SECTION property")
                         (file-name-as-directory (plist-get info :hugo-section))))
@@ -334,6 +335,16 @@ intended to be viewed in the inline environment."
           async subtreep visible-only body-only ext-plist))
     (cond (t retfile))))
 
+(defun org-huveal-export-subtree-to-html
+    (&optional async subtreep visible-only body-only ext-plist)
+  "Export current subtree to a Reveal.js HTML file."
+  (interactive)
+  (save-excursion
+    (org-hugo--get-valid-subtree)
+    (org-narrow-to-subtree)
+    (let ((ret (org-huveal-export-to-html async t visible-only body-only (plist-put ext-plist :reveal-subtree t))))
+      (widen)
+      ret)))
 
 
 ;; need to update this to check "is lecture" or something like that
@@ -362,7 +373,7 @@ Returns nil if a valid Hugo post subtree is not found."
 ;; experimental filter
 (defun org-huveal-final-filter (text backend info)
   "replaces org-reveal paths with org-huveal paths"
-  (message "in org-huveal-final-filter w/ info= \n%s" info)
+  ;; (message "in org-huveal-final-filter w/ info= \n%s" info)
   (let ((rev-root (plist-get info :reveal-root))
         (huv-root (plist-get info :huveal-root))
         (rev-extra-css (plist-get info :reveal-extra-css))

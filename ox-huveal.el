@@ -152,10 +152,6 @@ intended to be viewed in the inline environment."
          (pub-dir (let ((dir (concat base-dir content-dir section-dir)))
                     (make-directory dir :parents) ;Create the directory if it does not exist
                     dir))
-         ;; (static-dir (file-truename
-         ;;              (concat
-         ;;               (file-name-as-directory (plist-get info :hugo-base-dir))
-         ;;               "static/")))
          
          (outfile (org-export-output-file-name extension subtreep pub-dir))
          (clientfile (org-export-output-file-name (concat "_client" extension) subtreep)))
@@ -172,6 +168,8 @@ intended to be viewed in the inline environment."
           async subtreep visible-only body-only ext-plist))
     (cond (t retfile))))
 
+;; get subtree -- but actually for huveal we ONLY EVER want approved subtrees.
+;; so we just shortcut our way to dwim behaviour of hugo
 (defun org-huveal-export-subtree-to-html
     (&optional async subtreep visible-only body-only ext-plist)
   "Export current subtree to a Reveal.js HTML file."
@@ -184,29 +182,7 @@ intended to be viewed in the inline environment."
       ret)))
 
 
-;; need to update this to check "is lecture" or something like that
-;; so I can do my lectures as I wish. Not yet integrated into workflow
-(defun org-huveal--get-valid-subtree ()
-  "Return the org element for a valid Hugo post subtree.
-The condition to check validity is that the EXPORT_FILE_NAME
-property is defined for the subtree element.
-
-Returns nil if a valid Hugo post subtree is not found."
-  (catch 'break
-    (while :infinite
-      (let* ((entry (org-element-at-point))
-             (fname (org-element-property :EXPORT_FILE_NAME entry))
-             level)
-        (when fname
-          (throw 'break entry))
-        ;; Keep on jumping to the parent heading if the current
-        ;; entry does not have an EXPORT_FILE_NAME property.
-        (setq level (org-up-heading-safe))
-        ;; If no more parent heading exists, break out of the loop
-        ;; and return nil
-        (unless level
-          (throw 'break nil))))))
-
+;
 ;; experimental filter
 (defun org-huveal-final-filter (text backend info)
   "replaces org-re-reveal paths with org-huveal paths"
@@ -221,7 +197,89 @@ Returns nil if a valid Hugo post subtree is not found."
                               (replace-regexp-in-string rev-extra-css huv-extra-css
                                                         (replace-regexp-in-string rev-extra-js huv-extra-js
                                                                                   text)) )))
-  
+
+
+
+;; add a template despite code replication
+(defun org-huveal-template (contents info)
+  "Return complete document string after HTML conversion.
+CONTENTS is the transcoded contents string.
+INFO is a plist holding export options."
+  (concat
+   (format "<!DOCTYPE html>\n<html%s>\n<head>\n"
+           (org-re-reveal--if-format " lang=\"%s\"" (plist-get info :language)))
+   "<meta charset=\"utf-8\"/>\n"
+   (org-re-reveal--if-format "<title>%s</title>\n"
+                             (org-export-data (plist-get info :title) info))
+   (org-re-reveal--if-format "<meta name=\"author\" content=\"%s\"/>\n"
+                             (org-element-interpret-data (plist-get info :author)))
+   (org-re-reveal--if-format "<meta name=\"description\" content=\"%s\"/>\n"
+                             (plist-get info :description))
+   (org-re-reveal--if-format "<meta name=\"keywords\" content=\"%s\"/>\n"
+                             (plist-get info :keywords))
+   (org-re-reveal-stylesheets info)
+   (org-re-reveal-mathjax-scripts info)
+   (org-re-reveal--build-pre-postamble 'head-preamble info)
+   (org-element-normalize-string (plist-get info :html-head))
+   (org-element-normalize-string (plist-get info :html-head-extra))
+   "</head>\n<body"
+   (org-re-reveal--if-format " %s" org-re-reveal-body-attrs)
+   ">\n"
+   (org-re-reveal--build-pre-postamble 'preamble info)
+   "<div class=\"reveal\">
+<div class=\"slides\">\n"
+   ;; Title slides
+   (let ((title-slide (plist-get info :reveal-title-slide)))
+     (when title-slide ;;(and title-slide (not (plist-get info :reveal-subtree)))
+       (let ((title-slide-background (plist-get info :reveal-title-slide-background))
+             (title-slide-background-size (plist-get info :reveal-title-slide-background-size))
+             (title-slide-background-position (plist-get info :reveal-title-slide-background-position))
+             (title-slide-background-repeat (plist-get info :reveal-title-slide-background-repeat))
+             (title-slide-background-transition (plist-get info :reveal-title-slide-background-transition))
+             (title-slide-state (plist-get info :reveal-title-slide-state))
+             (title-slide-timing (plist-get info :reveal-title-slide-timing))
+             (title-slide-with-header (plist-get info :reveal-slide-global-header))
+             (title-slide-with-footer (plist-get info :reveal-slide-global-footer)))
+         (concat "<section id=\"sec-title-slide\""
+                 (when title-slide-background
+                   (concat " data-background=\"" title-slide-background "\""))
+                 (when title-slide-background-size
+                   (concat " data-background-size=\"" title-slide-background-size "\""))
+                 (when title-slide-background-position
+                   (concat " data-background-position=\"" title-slide-background-position "\""))
+                 (when title-slide-background-repeat
+                   (concat " data-background-repeat=\"" title-slide-background-repeat "\""))
+                 (when title-slide-background-transition
+                   (concat " data-background-transition=\"" title-slide-background-transition "\""))
+                 (when title-slide-state
+                   (concat " data-state=\"" title-slide-state "\""))
+                 (when title-slide-timing
+                   (concat " data-timing=\"" title-slide-timing "\""))
+                 ">\n"
+                 (when title-slide-with-header
+                   (let ((header (plist-get info :reveal-slide-header)))
+                     (when header (format org-re-reveal-slide-header-html header))))
+                 (cond ((eq title-slide nil) nil)
+                       ((stringp title-slide)
+                        (let* ((file-contents
+                                (org-re-reveal--read-file-as-string title-slide))
+                               (title-string (or file-contents title-slide)))
+                          (format-spec title-string
+                                       (org-re-reveal-format-spec info))))
+                       ((eq title-slide 'auto) (org-re-reveal--auto-title-slide-template info)))
+                 "\n"
+                 (when title-slide-with-footer
+                   (let ((footer (plist-get info :reveal-slide-footer)))
+                     (when footer (format org-re-reveal-slide-footer-html footer))))
+                 "</section>\n"))))
+   contents
+   "</div>
+</div>\n"
+   (org-re-reveal--build-pre-postamble 'postamble info)
+   (org-re-reveal-scripts info)
+   "</body>
+</html>\n"))
+
 
 (provide 'ox-huveal)
 

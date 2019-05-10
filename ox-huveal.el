@@ -14,13 +14,13 @@
 ;; It builds on the work of ox-reveal and ox-hugo, and is heavily indebted
 ;; to their authors.
 
-;; See the README on https://github.com/titaniumbones/ox-reveal
+;; See the README on https://github.com/titaniumbones/ox-huveal
 ;; for examples and instructions.
 
 ;;; Code:
 
 (require 'ox-hugo)
-(require 'ox-reveal)
+(require 'ox-re-reveal)
 
 ;;; User-Configurable Variables
 (defcustom org-huveal-root "/vendor/reveal/"
@@ -41,7 +41,7 @@
   :type 'string)
 
 ;;; Define Back-End
-(org-export-define-derived-backend 'huveal 'reveal ; huveal < reveal  < html
+(org-export-define-derived-backend 'huveal 're-reveal ; huveal < re-reveal  < html
   :menu-entry
   ;; a bunch of these should be deleted probably
   '(?V "Export to Reveal HTML in the Hugo location"
@@ -68,7 +68,7 @@
             (lambda (a s v _b)
               (org-huveal-export-as-md a s v)))))
   :translate-alist '((link . org-huveal-link)
-                     ;;(template . org-huveal-template)
+                     (template . org-huveal-template)
                      )
    :filters-alist '((:filter-final-output . org-huveal-final-filter))
 
@@ -91,21 +91,16 @@
 (defun org-huveal-link (link desc info)
   "Transcode a LINK object from Org to Reveal. The result is
   identical to ox-html expect for image links. unlike `org-huveal-link, 
- `org-reveal-single-file' has no effect. This is because the presentations are 
+ `org-re-reveal-single-file' has no effect. This is because the presentations are 
 intended to be viewed in the inline environment."
     (message "link type is %s" (org-element-property :type link))
   (let* ((local-image-p (and (string= "file" (org-element-property :type link))
                              (org-export-inline-image-p
                               link (plist-get info :html-inline-image-rules))))
-         ;; (want-embed-image (and (plist-get info :reveal-single-file)
-         ;;                        (plist-get info :html-inline-images)
-         ;;                        local-image-p))
          (raw-path (org-element-property :path link))
          ;; (images-dir (org-string-nw-p (plist-get info :hugo-static-images)))
          (type (org-element-property :type link))
-         (clean-path (org-reveal--file-url-to-path raw-path))
-         ;; (can-embed-image (and want-embed-image
-         ;;                       (file-readable-p clean-path)))
+         (clean-path (org-re-reveal--file-url-to-path raw-path))
          )
     (if local-image-p
         (let ((path (concat "../.."   ;; dirty hack! -- gets around hugo's absolute URL issues
@@ -149,6 +144,7 @@ intended to be viewed in the inline environment."
                        (user-error "It is mandatory to set the HUGO_BASE_DIR property")
                      (file-name-as-directory (plist-get info :hugo-base-dir))))
          (content-dir "content/")
+         (org-html-container-element "div")
          ;;(content-dir "static/")
          (section-dir (if (null (plist-get info :hugo-section))
                           (user-error "It is mandatory to set the HUGO_SECTION property")
@@ -213,7 +209,7 @@ Returns nil if a valid Hugo post subtree is not found."
 
 ;; experimental filter
 (defun org-huveal-final-filter (text backend info)
-  "replaces org-reveal paths with org-huveal paths"
+  "replaces org-re-reveal paths with org-huveal paths"
   ;; (message "in org-huveal-final-filter w/ info= \n%s" info)
   (let ((rev-root (plist-get info :reveal-root))
         (huv-root (plist-get info :huveal-root))
